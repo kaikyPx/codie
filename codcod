@@ -1,0 +1,780 @@
+<?php
+
+// Iniciar sessão (movido para o topo para garantir que a sessão esteja ativa antes de qualquer manipulação)
+session_start();
+
+// Definir variáveis de configuração e incluir arquivos necessários
+include($virtualpath.'/_layout/define.php');
+
+// Inicializar variáveis globais
+global $app;
+
+// Verificar se o aplicativo está ativo
+is_active($app['id']);
+$back_button = "true"; // Definindo a presença de um botão de "voltar"
+
+// Definir o número de itens a exibir e o ID do aplicativo
+$exibir = 8;
+$app_id = $app['id'];
+
+// Contar a quantidade de itens na sacola
+$has_content = count($_SESSION['sacola'][$app_id]);
+
+// SEO - Definir os dados de SEO para a página
+$seo_subtitle = $app['title'] . " - Minha sacola";
+$seo_description = "Minha sacola de compras " . $app['title'] . " no " . $seo_title;
+$seo_keywords = $app['title'] . ", " . $seo_title;
+$seo_image = thumber($app['avatar'], 400);
+
+// HEADER - Incluir os arquivos de layout necessários
+include($virtualpath.'/_layout/head.php');
+include($virtualpath.'/_layout/top.php');
+include($virtualpath.'/_layout/sidebars.php');
+include($virtualpath.'/_layout/modal.php');
+
+// Renderizar o conteúdo
+instantrender();
+
+// Ação de "flush" - Limpar a sacola
+if ($_GET['acao'] == "flush") {
+    unset($_SESSION['sacola']);
+}
+
+// Localização - Verificar a sessão de local
+$locall = $_SESSION["local"] ?? '0'; // Valor padrão '0' caso não exista a chave 'local' na sessão
+
+// Obter informações do horário atual
+$agora = new DateTime();
+$hora = $agora->format('H');
+$minuto = $agora->format('i');
+$segundo = $agora->format('s');
+$milissegundo = $agora->format('v');
+
+// Criar uma string para gerar um hash único
+$stringParaHash = $app_id . $hora . $minuto . $segundo . $milissegundo;
+
+// Gerar o hash MD5 para a sacola
+$hashMD5 = md5($stringParaHash);
+
+// Atribuir o hash gerado à variável do token
+$Token_Sacola = $hashMD5;
+
+?>
+
+<div class="sceneElement">
+
+	<div class="header-interna">
+
+        <!-- Barra de navegação visível em dispositivos menores (XS e SM) -->
+        <div class="locked-bar visible-xs visible-sm">
+    
+            <!-- Seção do avatar (imagem do aplicativo ou loja) -->
+            <div class="avatar">
+                <div class="holder">
+                    <!-- Link para a página inicial (redirecionamento para o site do aplicativo) -->
+                    <a href="<?php echo $app['url']; ?>">
+                        <!-- Imagem do avatar do aplicativo -->
+                        <img src="<?php echo $app['avatar']; ?>" alt="Avatar do Aplicativo" />
+                    </a>
+                </div>    
+            </div>
+    
+        </div>
+    
+        <!-- Seção adicional (pode ser usada para colocar outros elementos ou barras de navegação) -->
+        <div class="holder-interna holder-interna-nopadd holder-interna-sacola visible-xs visible-sm"></div>
+    
+    </div>
+
+
+	<div class="minfit">
+
+			<div class="middle">
+
+				<div class="container nopaddmobile">
+
+					<div class="row rowtitle">
+
+						<div class="col-md-12">
+							<div class="title-icon">
+								<span>Fechar Pedido</span>
+							</div>
+							<div class="bread-box">
+								<div class="bread">
+									<a href="<?php echo $app['url']; ?>"><i class="lni lni-home"></i></a>
+									<span>/</span>
+									<a href="<?php echo $app['url']; ?>/sacola.php">Minha sacola</a>
+								</div>
+							</div>
+						</div>
+
+						<div class="col-md-12 hidden-xs hidden-sm">
+							<div class="clearline"></div>
+						</div>
+
+					</div>
+
+					<div class="sacola">
+
+						
+					<form id="the_form" method="POST" action="<?php echo $app['url']; ?>/pedido_delivery?token=<?php echo $Token_Sacola; ?>">
+							<div class="row">
+
+								<div class="col-md-12">
+
+									<table class="listing-table sacola-table">
+										<thead>
+											<th></th>
+											<th>Nome</th>
+											<th>Qntd</th>
+											<th>Valor</th>
+											<th>Detalhes</th>
+											<th></th>
+										</thead>
+										<tbody>
+										<?php
+										foreach($_SESSION['sacola'][$app_id] AS $key => $value) {
+										$produto = $value['id'];
+										$newpid = $key;
+										$query_content = mysqli_query( $db_con, "SELECT * FROM produtos WHERE id = '$produto' AND status = '1' ORDER BY id ASC LIMIT 1" );
+										$data_content = mysqli_fetch_array( $query_content );
+										
+
+
+											// Sua string original
+                                    $variacoes_texto = $_SESSION['sacola'][$app_id][$newpid]['variacoes_texto'];
+                                    
+                                    // Divida a string em partes usando '*'
+                                    $parts = explode('*', $variacoes_texto);
+                                    
+                                    // Inicialize um array para armazenar as variações
+                                    $variacoes = array();
+                                    
+                                    // Itere sobre as partes da string
+                                    for ($i = 1; $i < count($parts); $i += 2) {
+                                        // Remove espaços em excesso e adiciona ao array de variações
+                                        $nome_variacao = trim($parts[$i]);
+                                        $valor_variacao = trim($parts[$i + 1]);
+                                    
+                                        // Remova o último e o primeiro caractere (ponto, vírgula, ponto e vírgula, dois pontos ou outros caracteres de pontuação)
+                                        $valor_variacao = trim($valor_variacao, ".,;:");
+                                    	$valor_variacao = substr($valor_variacao, 2);
+                                    
+                                        // Adicione a variação ao array
+                                        $variacoes[$nome_variacao] = $valor_variacao;
+                                        
+                                        
+                                    
+                                    	
+                                    
+                                        // Certifique-se de escapar para evitar SQL injection
+                                        $variacao_valor = mysqli_real_escape_string($db_con, $valor_variacao);
+                                    
+                                        // Consulta SQL para obter o valor adicional com base na variável $_SESSION['variacoes_texto']
+                                        $query_variacao = mysqli_query($db_con, "SELECT * FROM variacoes WHERE rel_produtos_id = '$produto'  and nome ='$variacao_valor' LIMIT 1");
+                                        $data_variacao = mysqli_fetch_array($query_variacao);
+                                        
+                                        
+                                          // verifica se ja tem a variação
+                                          $query_variaca_s = mysqli_query($db_con, "SELECT * FROM variacoes_sacola WHERE pid = '$newpid'");
+                                          $data_variacao_s = mysqli_fetch_array($query_variaca_s);
+                                          $pid = $data_variacao_s['pid'];
+                                    
+                                        // Se encontrar a variacao, armazena o valor adicional no array $valor_adicional
+                                        if ($data_variacao) {
+                                            $valor_adicional = $data_variacao['Valor_variacao'];
+                                            
+                                         if ($pid){mysqli_query($db_con, "UPDATE variacoes_sacola SET token_sacola = '$Token_Sacola', valor = '$valor_adicional', nome = '$variacao_valor', rel_produto_id  = '$produto'  WHERE  pid = '$newpid'");}
+                                         else{
+                                    	  mysqli_query($db_con, "INSERT INTO variacoes_sacola (token_sacola, valor, nome, pid, rel_produto_id) VALUES ('$Token_Sacola', '$valor_adicional', '$variacao_valor', '$newpid', '$produto')");}
+                                        } else {
+                                            $valor_adicional = 0; // Defina um valor padrão se a variacao não for encontrada
+                                        }
+                                    
+                                    	// Acumule o valor adicional total
+                                        $valor_adicional_total += $valor_adicional;
+                                    
+                                    	$_SESSION['sacola'][$app['id']][$newpid]['valor_adicional'] = $valor_adicional_total;
+                                    	
+                                    	
+                                    } ?>
+
+                                   
+                                   
+                                   
+
+	
+									<?php // Area de calculo de volumes
+									
+									
+ 
+									
+									    // tabela produtos: 
+									   // Vincular Colunas a varaiveis com o mesmo nome 
+									   
+									   
+									   
+									   
+									//colunas:
+									$Peso = $data_content['Peso'];
+									$Cumprimento = $data_content['Cumprimento'];	
+									$Altura = $data_content['Altura'];
+									$Largura = $data_content['Largura'];
+									$QTD_P_Volume = $data_content['QTD_P_Volume'];
+									$Altura_Max_Volume	= $data_content['Altura_Max_Volume'];
+									$Largura_Max_Volume	= $data_content['Largura_Max_Volume'];
+                                    $Cumprimento_Max_Volume	= $data_content['Cumprimento_Max_Volume'];
+                                   	$Peso_Max_Volume = $data_content['Peso_Max_Volume'];
+                                   	$CEP_Produto = $data_content['CEP_Produto']; 
+                                   	$QTD_Volumes = $data_content['QTD_Volumes'];
+                                   	$Valor_volume = number_format( $data_content['Valor_volume'], 2, '.', '');
+                                   	$QTD_P = $data_content['QTD_P'];
+                                   	$ID_P = $data_content['ID_P'];
+                                   	$processamento = $data_content['processamento'];
+									     
+									     
+									     
+									     
+								 	     // tabela varaições 
+						               // Vincular Colunas a varaiveis com o mesmo nome   
+									     
+									  
+										//colunas:
+										$Peso_variacao = $data_variacao['Peso_variacao'];	
+										$Cumprimento_variacao =	$data_variacao['Cumprimento_variacao'];
+										$Altura_variacao =	$data_variacao['Altura_variacao'];	
+										$Largura_variacao = $data_variacao['Largura_variacao'];
+									     
+									    
+								
+									
+									// Montar Volumes
+									
+									
+								  // CEP 
+								 	$CEP_Volume = ($CEP_Produto);
+									$data['CEP_Volume'] = $CEP_Volume;
+									
+									
+                                 
+                                 // Valor Volume
+                                 
+                                	$Valor_volume = $_SESSION['sacola'][$app['id']][$newpid]['valor_adicional'] + $data_content['valor_promocional']* $Q_total_P = $_SESSION['sacola'][$app_id][$newpid]['quantidade'];
+                                	$data['Valor_volume'] = $Valor_volume;
+                                	
+                                	
+                                	
+                                	
+                                	
+                                // Quantidade de Produtos 
+                                
+                                $QTD_P = '';
+                                $ID_P = '';
+                                
+                                $QTD_P = $_SESSION['sacola'][$app_id][$newpid]['quantidade'];
+                                $data['QTD_P'] = ($QTD_P);
+                                
+                                
+                                // Id do produto No Volume
+                                
+                                $produto = $value['id'];
+                                $ID_P = ($produto);
+                                
+                                
+                               /////////////////////////////////////// Calcula de Volumes ////////////////////////////////////////////
+                                
+                                if ($QTD_P_Volume >= $_SESSION['sacola'][$app_id][$newpid]['quantidade']){
+									
+						
+								//Peso
+									$Peso_volume = ($Peso + $Peso_variacao) * ($_SESSION['sacola'][$app_id][$newpid]['quantidade']); 
+									$data['Peso_volume'] = $Peso_volume;
+									
+								  
+								  //Altura
+								 	$Altura_volume = ($Altura + $Altura_variacao) * ($_SESSION['sacola'][$app_id][$newpid]['quantidade']); 
+									$data['Altura_volume'] = $Altura_volume;	
+									
+									
+								  //Largura
+									$Largura_volume = ($Largura + $Largura_variacao); 
+									$data['Largura_volume'] = $Largura_volume;								  
+									
+									
+									
+									//Cumprimento
+									
+									$Cumprimento_volume = ($Cumprimento + $Cumprimento_variacao); 
+									$data['Cumprimento_volume'] = $Cumprimento_volume;
+									
+									
+									//Quantidade de Volumes
+									$QTD_Volumes = 1; 
+									$data['QTD_Volumes'] = $QTD_Volumes;
+
+									$buscar_pedido = mysqli_query( $db_con,  "SELECT * FROM pedidos ORDER BY id DESC LIMIT 1" );
+									$result_busca_pedido = mysqli_fetch_array( $buscar_pedido );
+									$numeroPedido = $result_busca_pedido['id'] + 1;
+									}else{ 
+									     // inicio do loop
+									     for($Peso_volume == ""; $Altura_volume == ""; $Largura_volume == "" ){
+									    $controle = $controle + 1;
+								    
+							 	if (($QTD_P_Volume * $controle) >= $_SESSION['sacola'][$app_id][$newpid]['quantidade'])
+								    	
+								    	
+									{
+									    
+									    
+						 //Peso
+									$Peso_volume = ($Peso + $Peso_variacao) * (($_SESSION['sacola'][$app_id][$newpid]['quantidade'])/$controle); 
+									$data['Peso_volume'] = $Peso_volume;
+									
+									
+																		
+								  
+								  //Altura
+								 	$Altura_volume = ($Altura + $Altura_variacao) * (($_SESSION['sacola'][$app_id][$newpid]['quantidade'])/$controle); 
+									$data['Altura_volume'] = $Altura_volume;	
+									
+									
+					   //Largura
+									$Largura_volume = ($Largura + $Largura_variacao); 
+									$data['Largura_volume'] = $Largura_volume;								  
+									
+									
+									
+									//Cumprimento
+									
+									$Cumprimento_volume = ($Cumprimento + $Cumprimento_variacao); 
+									$data['Cumprimento_volume'] = $Cumprimento_volume;
+									
+									
+				 	//Quantidade de Volumes
+																		$QTD_Volumes = $controle; 
+									$data['QTD_Volumes'] = $QTD_Volumes;
+
+									$buscar_pedido = mysqli_query( $db_con,  "SELECT * FROM pedidos ORDER BY id DESC LIMIT 1" );
+									$result_busca_pedido = mysqli_fetch_array( $buscar_pedido );
+									$numeroPedido = $result_busca_pedido['id'] + 1;
+									
+									} }}
+									
+									// fim do loop
+									
+			/////////////////////////////////////////////////// Fim do bloco Montagem de Volume//////////////////////////////////////////////////////////////////
+                                
+	
+									
+
+								if ($result_busca_pedido) {
+									$numeroPedido = $result_busca_pedido['id'] + 1;
+									
+
+									// Verifique se o número do pedido já existe na tabela Volumes
+									$query_verificar_existencia = mysqli_prepare($db_con, "SELECT COUNT(*) as count FROM Volumes WHERE rel_pedidos_id = ? and newpid = ?");
+									mysqli_stmt_bind_param($query_verificar_existencia, "ss", $numeroPedido, $newpid);
+									mysqli_stmt_execute($query_verificar_existencia);
+									$resultado_existencia = mysqli_stmt_get_result($query_verificar_existencia);
+									$existencia_data = mysqli_fetch_array($resultado_existencia);
+									$count_existencia = $existencia_data['count'];
+
+									
+
+									if($count_existencia == 0){
+										// Criar a consulta preparada
+$query_inserir = mysqli_prepare($db_con, "INSERT INTO Volumes (rel_pedidos_id, Peso_volume, Altura_volume, Largura_volume, Cumprimento_volume, CEP_Volume, QTD_Volumes, Valor_volume, QTD_P, ID_P, newpid, Token_Sacola, p_processamento ) VALUES ('$numeroPedido', '$Peso_volume', '$Altura_volume', '$Largura_volume', '$Cumprimento_volume', '$CEP_Volume', '$QTD_Volumes', '$Valor_volume', '$QTD_P', '$ID_P', '$newpid', '$Token_Sacola', '$processamento')");
+// Verificar se a consulta preparada foi criada com sucesso
+if ($query_inserir) {
+    // Associar parâmetros à consulta preparada
+    //mysqli_stmt_bind_param($query_inserir, "idddddiids", $numeroPedido, $Peso_volume, $Altura_volume, $Largura_volume, $Cumprimento_volume, $CEP_Volume, $QTD_Volumes, $Valor_volume, $QTD_P, $ID_P, $newpid, $Token_Sacola);
+
+    // Executar a consulta preparada
+    $executar = mysqli_stmt_execute($query_inserir);
+
+    // Verificar se a execução foi bem-sucedida
+    if ($executar) {
+        //echo "Inserção bem-sucedida!";
+    } else {
+        echo "Erro ao inserir: " . mysqli_stmt_error($query_inserir);
+    }
+
+    // Fechar a consulta preparada
+    mysqli_stmt_close($query_inserir);
+} else {
+    echo "Erro ao preparar a consulta: " . mysqli_error($db_con);
+}
+
+									}else{
+										$qtd_atualizar = $_SESSION['sacola'][$app_id][$newpid]['quantidade'];
+										mysqli_stmt_close($query_verificar_existencia);
+
+										$query_inserir = mysqli_query($db_con, "UPDATE Volumes SET QTD_Volumes = '$qtd_atualizar', Token_Sacola = '$Token_Sacola', QTD_P = '$QTD_P', ID_P = '$ID_P', Frete_Volume = 0  WHERE newpid = '$newpid'");
+									}
+
+									
+									/*$query_inserir = mysqli_prepare($db_con, "INSERT INTO Volumes (rel_pedidos_id, Peso_volume, Altura_volume, Largura_volume, Cumprimento_volume) VALUES (?, ?, ?, ?, ?)");
+									mysqli_stmt_bind_param($query_inserir, "sdddd", $numeroPedido, 1, 1, 1, 1);
+									mysqli_stmt_execute($query_inserir);
+
+									*/
+								}
+
+								
+									//var_dump($data);
+									?>
+									
+									
+
+										
+										
+										
+										<tr class="sacola-alterar sacola-<?php echo $newpid; ?>" sacola-eid="<?php echo $app_id; ?>" sacola-pid="<?php echo $newpid; ?>" valor="<?php echo $data_content['valor_promocional']; ?>" valor-adicional="<?php echo $_SESSION['sacola'][$app['id']][$newpid]['valor_adicional'];?>" valor-somado="<?php echo $_SESSION['sacola'][$app['id']][$newpid]['valor_adicional'] + $data_content['valor_promocional']; $valor_adicional_total = 0; ?>">
+
+
+											<td class="td-foto">
+												<a href="<?php echo $app['url']; ?>/produto/<?php echo $produto; ?>">
+													<div class="imagem">
+														<img src="<?php echo imager( $data_content['destaque'] ); ?>"/>
+													</div>
+												</a>	
+											</td>	
+											<td class="td-nome">
+												<a href="<?php echo $app['url']; ?>/produto/<?php echo $produto; ?>">
+													<span class="nome"><?php echo htmlclean( $data_content['nome'] ); ?></span>
+												</a>
+											</td>
+											<td class="td-detalhes visible-xs visible-sm">
+												<div class="line detalhes">
+													<?php if( $_SESSION['sacola'][$app['id']][$newpid]['variacoes_texto'] ) { ?>
+													<span>
+														<?php 
+														echo nl2br( bbzap( htmlcleanbb( $_SESSION['sacola'][$app['id']][$newpid]['variacoes_texto'] ) ) ); 
+														?>
+													</span>
+													<?php } ?>
+												</div>
+											</td>
+											<td class="td-quantidade">
+												<div class="clear"></div>
+												<div class="holder-acao">
+													<div class="item-acao visible-xs visible-sm">
+														<a class="sacola-change" href="<?php echo $app['url']; ?>/produto/<?php echo $data_content['id']; ?>">
+															<i class="lni lni-pencil"></i> 
+														</a>
+													</div>
+													
+	
+													
+													<div class="item-acao">
+														<div class="line quantidade">
+															<div class="clear"></div>
+															<div class="campo-numero">
+																<i class="decrementar lni lni-minus" onclick="decrementarRefresh()" onclick="decrementar('#quantidade');"></i>
+																<input id="quantidade" type="number" name="quantidade" value="<?php echo htmlclean( $_SESSION['sacola'][$app_id][$newpid]['quantidade'] ); ?>"/>
+																<i class="incrementar lni lni-plus" onclick="incrementarRefresh()" onclick="incrementar('#quantidade');"></i>
+															</div>
+															<div class="clear"></div>
+														</div>
+													</div>
+													<div class="item-acao visible-xs visible-sm">
+														<a class="sacola-remover" href="#" sacola-eid="<?php echo $app_id; ?>" sacola-pid="<?php echo $newpid; ?>">
+															<i class="lni lni-trash"></i> 
+														</a>
+													</div>
+												</div>
+											</td>
+											<td class="td-valor">
+												<span>Valor:</span>
+												<div class="line valor">
+													<span></span>
+												</div>
+											</td>
+											<td class="td-detalhes hidden-xs hidden-sm">
+												<div class="line detalhes">
+													<?php if( $_SESSION['sacola'][$app['id']][$newpid]['variacoes_texto'] ) { ?>
+													<span>
+ 
+														<?php 
+														echo nl2br( bbzap( htmlcleanbb( $_SESSION['sacola'][$app['id']][$newpid]['variacoes_texto'] ) ) ); 
+														?>
+													</span>
+													
+													<?php } ?>
+												</div>
+											</td>
+											<td class="td-acoes hidden-xs hidden-sm">
+												<div class="holder">
+													<a class="sacola-remover" href="#" sacola-eid="<?php echo $app_id; ?>" sacola-pid="<?php echo $newpid; ?>">
+														<i class="lni lni-trash"></i> 
+														<span class="visible-xs">Excluir</span>
+													</a>
+												</div>
+												<div class="clear visible-xs visible-sm"></div>
+											</td>
+										</tr>
+										
+								
+
+										<?php } ?>
+										<tr class="sacola-null">
+											<td colspan="5"><span class="nulled">Sua sacola de compras está vazia, adicione produtos para poder fazer o seu pedido!</span></td>
+										</tr>
+										</tbody>
+									</table>
+
+								</div>
+
+							</div>
+
+							<div class="linha-subtotal">
+
+								<div class="row error-pedido-minimo error-pedido-minimo-sacola">
+
+									<div class="col-md-12">
+										<input class="fake-hidden" name="pedido_minimo" value=""/>
+									</div>
+
+								</div>
+</form>
+								
+								 
+									
+								<div class="row">
+									
+									
+									<div class="col-md-<?php if($locall == 0) { echo '4'; } else { echo '9';}?>">
+
+										<div class="subtotal"><strong>Subtotal:</strong> <span><?php echo "R$ ".dinheiro( $subtotal, "BR"); ?></span></div>
+
+									</div>
+									<div class="clear visible-xs visible-sm"><br/></div>
+									
+									
+																		
+									
+                                    
+									<?php if(0 == 0) {?>
+									
+									<?php if(1 == 1) {
+										if(1 == 2) { ?>
+								<div class="col-md-3">
+										<a href="/checkout/login" class="botao-acao"><span>Pròximo</span> <i class="lni lni-arrow-right"></i></a>
+										</div>
+										<?php } else { ?>
+										<div class="col-md-3">
+											<form id="the_form" method="POST" action="<?php echo $app['url']; ?>/entrega?token=<?php echo $Token_Sacola; ?>">
+												<input class="fake-hidden" name="pedido_minimo" value=""/>
+												<button class="botao-acao"><span>Próximo</span> <i class="lni lni-arrow-right"></i></button>
+											</form>
+										</div>
+									<?php }} ?>									
+									<div class="clear visible-xs visible-sm"><br/></div>
+									
+
+
+                                    <div class="clear visible-xs visible-sm"><br/></div>
+									
+									<?php if($app['mesa'] == 1) { ?>
+									<div class="col-md-2">
+									<form id="the_form" method="POST" action="<?php echo $app['url']; ?>/pedido_mesa">
+									<input class="fake-hidden" name="pedido_minimo" value=""/>
+									
+										<button class="botao-acao"><i class="lni lni-helmet"></i> <span>Mesa</span></button>
+									
+									</form>
+									</div>
+									<?php } ?>
+									
+									<?php } else { ?>
+									
+									<?php if($app['outros'] == 1) { ?>
+									<div class="col-md-3">
+									<form id="the_form" method="POST" action="<?php echo $app['url']; ?>/pedido_outros">
+									<input class="fake-hidden" name="pedido_minimo" value=""/>
+									
+										<button class="botao-acao"><i class="lni lni-consulting"></i> <span><?php print $app['nomeoutros']; ?></span></button>
+									
+									</form>
+									</div>
+									<?php } ?>
+									<?php } ?>
+
+								</div>
+
+							</div>
+
+						</form>
+
+					</div>
+
+				</div>
+
+			</div>
+
+	</div>
+
+</div>
+
+<?php 
+// FOOTER
+$system_footer .= "";
+include($virtualpath.'/_layout/rdp.php');
+include($virtualpath.'/_layout/footer.php');
+?>
+
+<script>
+
+$(document).ready( function() {
+          
+  var form = $("#the_form");
+  form.validate({
+      focusInvalid: true,
+      invalidHandler: function() {
+      },
+      errorPlacement: function errorPlacement(error, element) { element.after(error); },
+      rules:{
+        pedido_minimo: {
+        	required: true
+        }
+      },
+      messages:{
+        pedido_minimo: {
+            required: "Você deve ter no minimo R$ <?php echo $app['pedido_minimo']; ?> na sacola para poder efetuar a compra"
+        },
+      }
+  });
+
+});
+
+</script>
+
+<?php 
+// FOOTER
+$system_footer .= "";
+include($virtualpath.'/_layout/rdp.php');
+include($virtualpath.'/_layout/footer.php');
+?>
+
+<script>
+// Validação do formulário
+$(document).ready(function() {
+    var form = $("#the_form");
+    form.validate({
+        focusInvalid: true,
+        invalidHandler: function() {},
+        errorPlacement: function errorPlacement(error, element) { 
+            element.after(error); 
+        },
+        rules: {
+            pedido_minimo: {
+                required: true
+            }
+        },
+        messages: {
+            pedido_minimo: {
+                required: "Você deve ter no mínimo R$ <?php echo $app['pedido_minimo']; ?> na sacola para poder efetuar a compra"
+            },
+        }
+    });
+});
+
+// Função para converter valores decimais para o formato real
+function decimaltoreal(valor) {
+    valor = valor + '';
+    valor = parseInt(valor.replace(/[\D]+/g, ''));
+    valor = valor + '';
+    valor = valor.replace(/([0-9]{2})$/g, ",$1");
+
+    if (valor.length > 6) {
+        valor = valor.replace(/([0-9]{3}),([0-9]{2}$)/g, ".$1,$2");
+    }
+
+    return valor;
+}
+
+// Captura do token de sessão
+var token = "<?php echo session_id(); ?>";
+
+// Função para alterar a quantidade de produtos na sacola
+$(".sacola-alterar").change(function() {
+    var eid = $(this).attr('sacola-eid');
+    var produto = $(this).attr('sacola-pid');
+    var modo = "alterar";
+    var quantidade = $(this).find("input[name='quantidade']").val();
+    var data = "quantidade=" + quantidade;
+
+    $.post("<?php echo $app['url']; ?>/app/estabelecimento/_ajax/sacola.php", { token: token, eid: eid, produto: produto, modo: modo, data: data })
+    .done(function(data) {
+        // Operação de sucesso (pode adicionar algum feedback visual aqui, se necessário)
+    });
+
+    $("#the_form").trigger("change");
+});
+
+// Função para remover produtos da sacola
+$(".sacola-remover").click(function() {
+    var eid = $(this).attr('sacola-eid');
+    var produto = $(this).attr('sacola-pid');
+    var modo = "remover";
+
+    if (confirm('Deseja remover o produto da sua sacola?')) {
+        $.post("<?php echo $app['url']; ?>/app/estabelecimento/_ajax/sacola.php", { token: token, eid: eid, produto: produto, modo: modo })
+        .done(function(data) {
+            console.log("Produto removido da sacola");
+            $(".sacola-" + produto).fadeOut("800", function() {
+                $(this).remove();
+                $("#the_form").trigger("change");
+                sacola_count(eid, token);
+            });
+        });
+    }
+});
+
+// Função para recalcular os totais na sacola
+$(document).on('change', '#the_form', function(e) {
+    var total = 0;
+
+    $(".sacola-alterar").each(function() {
+        var valor = parseFloat($(this).attr("valor"));
+        var adiciona = parseFloat($(this).attr("valor-adicional"));
+        var quantidade = parseFloat($(this).find("#quantidade").val());
+
+        // Calcular o total do item
+        var itemTotal = (valor + adiciona) * quantidade;
+        itemTotal = parseFloat(itemTotal).toFixed(2);
+
+        // Exibir o valor do item
+        var totalbr = decimaltoreal(itemTotal);
+        $(this).attr("valor-somado", itemTotal);
+        $(this).find(".valor span").html("R$ " + totalbr);
+
+        // Somar o total geral
+        total += parseFloat(itemTotal);
+    });
+
+    // Exibir subtotal
+    total = parseFloat(total).toFixed(2);
+    var totalbr = decimaltoreal(total);
+    $(".subtotal").html("<strong>Subtotal:</strong> R$ " + totalbr);
+
+    // Verificar se o total atende ao valor mínimo do pedido
+    if (total >= <?php echo $app['pedido_minimo_valor']; ?>) {
+        $("input[name='pedido_minimo']").val(1);
+    } else {
+        $("input[name='pedido_minimo']").val("");
+    }
+});
+
+// Forçar o cálculo do total ao carregar a página
+$("#the_form").trigger("change");
+
+// Funções para recarregar a página
+function incrementarRefresh() {
+    window.location.reload();
+}
+
+function decrementarRefresh() {
+    window.location.reload();
+}
+</script>
